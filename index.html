@@ -13,147 +13,178 @@ body{margin:0;padding:10px;background:var(--bg);color:var(--fg);font:15px/1.4 sy
 h1{font-size:1.3rem;margin:0 0 6px}
 input{padding:7px 9px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--fg);font:inherit;max-width:100%}
 button{padding:8px 12px;margin:3px 3px 3px 0;border:1px solid var(--bd);border-radius:8px;background:var(--card);color:var(--fg);font:inherit;cursor:pointer}
-#cols button{color:#fff;border:0;font-weight:600}
 button[aria-pressed="true"]{outline:2px solid #3b82f6}
-.hud{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;margin-bottom:8px}
-.bar{height:10px;background:var(--bd);border-radius:6px;overflow:hidden;width:150px}
+#cols button{width:32px;height:32px;padding:0;border-radius:50%;border:2px solid var(--bd)}
+#app{display:grid;grid-template-columns:minmax(230px,300px) 1fr;gap:14px;align-items:start;max-width:1400px;margin:0 auto}
+@media(max-width:820px){#app{grid-template-columns:1fr}}
+aside{display:flex;flex-direction:column;gap:8px;min-width:0}
+.row{display:flex;gap:6px;align-items:center}
+.row input{flex:1;min-width:0}
+.bar{height:10px;background:var(--bd);border-radius:6px;overflow:hidden;width:100%}
 .bar i{display:block;height:100%;width:0}
-#who span{border:2px solid;border-radius:14px;padding:1px 9px;margin-right:5px;font-size:.85rem}
-.wrap{position:relative;max-width:1000px;margin:0 auto}
+.dot{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+#mj label{display:block;margin:5px 0}
+.wrap{position:relative;max-width:1000px;width:100%}
 canvas{width:100%;height:auto;display:block;border-radius:12px;touch-action:none}
 #ban{position:absolute;inset:0;display:grid;place-items:center;font-size:2.4rem;font-weight:800;color:#fff;background:#0008;border-radius:12px;pointer-events:none}
-#mj{margin-top:8px}
 small{color:var(--mut)}
 </style></head><body>
 <div id="join" class="card">
 <h1>Capture Styler</h1>
-<p>Joueur : entre le code du meneur puis choisis ta couleur. Meneur : crée la partie.</p>
-<input id="nick" placeholder="Ton prénom" maxlength="16"> <input id="code" placeholder="Code de la partie" maxlength="8" style="width:150px;text-transform:uppercase">
+<p>Par défaut, tout le monde se retrouve dans la partie générale. Pour jouer en privé, le meneur crée un lobby privé et partage son code (ou son lien).</p>
+<input id="nick" placeholder="Ton prénom" maxlength="16"> <input id="code" placeholder="Code (vide = partie générale)" maxlength="8" style="width:200px;text-transform:uppercase">
 <p id="cols"></p>
-<button id="gm">Je suis le meneur</button><p id="err" style="color:#ef4444"></p>
+<label>Autre couleur <input id="cc" type="color" value="#ef4444"></label>
+<p><button id="jp">Rejoindre comme joueur</button></p>
+<p><button id="gm">Meneur : partie générale</button><button id="gp">Meneur : lobby privé</button></p>
+<p id="err" style="color:#ef4444"></p>
 </div>
 <div id="app" hidden>
-<div class="hud">
+<aside>
 <b id="name"></b>
-<span><div class="bar"><i id="prog" style="background:#22c55e"></i></div><small id="pt"></small></span>
-<span><div class="bar"><i id="en" style="background:#f59e0b"></i></div><small id="et"></small></span>
+<div><div class="bar"><i id="prog" style="background:#22c55e"></i></div><small id="pt"></small></div>
+<div id="enb"><div class="bar"><i id="en" style="background:#f59e0b"></i></div><small id="et"></small></div>
 <small id="net"></small>
-</div>
+<div id="lkr" class="row" hidden><input id="lk" readonly><button id="cp">Copier le lien</button></div>
 <div id="who"></div>
-<div class="wrap"><canvas id="cv"></canvas><div id="ban" hidden></div></div>
 <div id="mj" hidden>
 <label>Pokémon <input id="nm" value="Pokémon sauvage" maxlength="40"></label>
-<label>Boucles <input id="nd" type="number" min="1" value="5" style="width:60px"></label>
-<label>Énergie <input id="ne" type="number" min="1" value="10" style="width:60px"></label><br>
-<label>Image de la cible (PNG) <input id="im" type="file" accept="image/png"></label><button id="ri">Retirer l’image</button><br>
-<label>Taille de la cible <input id="sz" type="range" min="40" max="320" value="130"></label> <small>(ou molette)</small> <button id="cp">Copier le lien</button><br>
-<button id="tc" aria-pressed="true">Déplacer la cible</button><button id="tz" aria-pressed="false">Attaque ronde</button><button id="tk" aria-pressed="false">Attaque en cône</button> <label>Ouverture <input id="ca" type="range" min="10" max="90" value="30"></label> <button id="cz">Effacer les attaques</button><button id="nw">Nouvelle capture</button>
+<label>Boucles à réussir <input id="nd" type="number" min="1" value="5" style="width:60px"></label>
+<label>Énergie par joueur <input id="ne" type="number" min="1" value="10" style="width:60px"></label>
+<label>Image de la cible (PNG) <input id="im" type="file" accept="image/png"></label><button id="ri">Retirer l’image</button>
+<label>Taille de la cible <input id="sz" type="range" min="40" max="320" value="130"></label>
+<div><button id="tc" aria-pressed="true">Déplacer la cible</button><button id="tz" aria-pressed="false">Attaque ronde</button><button id="tk" aria-pressed="false">Attaque en cône</button></div>
+<label>Ouverture du cône <input id="ca" type="range" min="10" max="90" value="30"></label>
+<div><button id="ra">Attaques aléatoires (Espace)</button><button id="nw">Nouvelle capture</button></div>
 </div>
-<p><small id="help"></small></p>
+<small id="help"></small>
+</aside>
+<div class="wrap"><canvas id="cv"></canvas><div id="ban" hidden></div></div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script>
 const $=id=>document.getElementById(id);
-const COL={Rouge:"#ef4444",Bleu:"#3b82f6",Vert:"#22c55e",Jaune:"#eab308"};
-const W=1000,H=625,cv=$("cv"),g=cv.getContext("2d");cv.width=W;cv.height=H;
-let peer=null,host=null,conns=[],code="",myId="me",imgData=null,tImg=null,tMask=null,ls=0,me={},role=null,pts=[],drawing=false,tool="cible",zc=[0,0],lastHit=0,hitT=-999,lastRound=0;
-const ghosts=[],last={},state={};
+const COLS=["#ef4444","#f97316","#eab308","#22c55e","#14b8a6","#06b6d4","#3b82f6","#8b5cf6","#ec4899","#f5f5f5"];
+const W=1000,H=625,DUR=800,cv=$("cv"),g=cv.getContext("2d");cv.width=W;cv.height=H;
+let peer=null,host=null,conns=[],code="",lobby="",myId="me",imgData=null,tImg=null,tMask=null,ls=0,myc=COLS[0],me={},role=null,pts=[],drawing=false,tool="cible",zc=[0,0];
+const ghosts=[],last={},fx={},state={},atks=[];
 const ap=(o,p)=>{for(const k in p){if(p[k]===null)delete o[k];else o[k]=p[k]}};
-const all=()=>Object.entries(state).map(([id,presence])=>({peer:id,isMe:id===myId,sameTab:id===myId,presence}));
+const all=()=>Object.entries(state).map(([id,presence])=>({peer:id,isMe:id===myId,presence}));
 const bc=(m,x)=>conns.forEach(c=>{if(c!==x&&c.open)c.send(m)});
-function setP(p){ap(me,p);const k=Object.keys(p);if(k.length===1&&k[0]==="pts"){const n=performance.now();if(n-ls<40)return;ls=n}
+const S=()=>Object.assign({tgt:[500,312],need:5,maxE:10,name:"Pokémon sauvage"},(all().find(p=>p.presence.role==="mj")||{}).presence||{});
+const loops=()=>all().reduce((a,p)=>a+(p.presence.role==="p"?p.presence.loops||0:0),0);
+const hex=c=>/^#[0-9a-fA-F]{6}$/.test(c),okc=c=>hex(c)?c:"#aaaaaa";
+function setP(p){ap(me,p);const k=Object.keys(p);if(k.length===1&&(k[0]==="pts"||k[0]==="pv")){const n=performance.now();if(n-ls<40)return;ls=n}
  if(role==="mj")bc({t:"u",id:myId,patch:p});else if(host&&host.open)host.send({t:"p",patch:p})}
 function setImg(d){tImg=null;tMask=null;if(typeof d==="string"&&d.startsWith("data:image/png;base64,")&&d.length<600000){const i=new Image();i.onload=()=>{const c=document.createElement("canvas");c.width=i.naturalWidth;c.height=i.naturalHeight;const x=c.getContext("2d");x.drawImage(i,0,0);try{tMask=x.getImageData(0,0,c.width,c.height)}catch(e){}tImg=i};i.src=d}}
+function addAtk(l){if(!Array.isArray(l))return;l.forEach(a=>{if(a&&(a.k==="c"||a.k==="k")&&atks.length<40)atks.push({k:a.k,x:+a.x||0,y:+a.y||0,r:+a.r||0,d:+a.d||0,f:+a.f||30,t0:performance.now()+(+a.dl||0)})})}
+function reset(en){atks.length=0;for(const id in state)if(state[id].role==="p"){state[id].loops=0;state[id].en=en}}
+function launch(l){addAtk(l);bc({t:"atk",a:l})}
+function newRound(){const e=me.maxE||10;setP({round:(me.round||0)+1});reset(e);bc({t:"rs",en:e})}
+function randAtk(){launch(Array.from({length:3+Math.random()*3|0},()=>({k:"c",x:80+Math.random()*(W-160),y:80+Math.random()*(H-160),r:45+Math.random()*50,dl:Math.random()*600})))}
 const fail=m=>{$("err").textContent=m};
-const clean=p=>{const q={};for(const k of ["role","nick","c","loops","pts","fxK","fxN"])if(k in p)q[k]=p[k];if(q.role)q.role="p";return q};
+const clean=p=>{const q={};for(const k of ["role","nick","c","loops","pts","fxK","fxN","en"])if(k in p)q[k]=p[k];if(q.role)q.role="p";if("c" in q&&!hex(q.c))q.c="#aaaaaa";if(typeof q.nick==="string")q.nick=q.nick.slice(0,16);return q};
 function hostConn(c){conns.push(c);
  c.on("open",()=>c.send({t:"s",state,img:imgData}));
  c.on("data",m=>{if(m&&m.t==="p"&&m.patch){const q=clean(m.patch);ap(state[c.peer]||(state[c.peer]={}),q);bc({t:"u",id:c.peer,patch:q},c)}});
  c.on("close",()=>{conns=conns.filter(x=>x!==c);delete state[c.peer];bc({t:"x",id:c.peer})})}
-function startHost(){code=Array.from({length:5},()=>"ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[Math.random()*32|0]).join("");
+const ID="styler-uneon-";
+function startHost(priv){code=priv?Array.from({length:5},()=>"ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[Math.random()*32|0]).join(""):"";
  if(typeof Peer==="undefined")return fail("PeerJS n’a pas pu se charger (connexion internet ?).");
- peer=new Peer("styler-"+code);
- peer.on("error",e=>e.type==="unavailable-id"?startHost():fail("Erreur réseau : "+e.type));
+ peer=new Peer(ID+(code||"general"));
+ peer.on("error",e=>{if(e.type!=="unavailable-id")return fail("Erreur réseau : "+e.type);
+  if(priv)startHost(true);else fail("La partie générale a déjà un meneur (ou vient de se fermer : réessaie dans quelques secondes). Tu peux la rejoindre comme joueur ou créer un lobby privé.")});
  peer.on("open",id=>{myId=id;state[id]=me;go("mj")});
  peer.on("connection",hostConn)}
-function startClient(c){const cd=$("code").value.trim().toUpperCase();
- if(!cd)return fail("Entre le code donné par le meneur.");
+function startClient(){const cd=$("code").value.trim().toUpperCase();lobby=cd;
  if(typeof Peer==="undefined")return fail("PeerJS n’a pas pu se charger (connexion internet ?).");
  peer=new Peer();
- peer.on("error",e=>fail(e.type==="peer-unavailable"?"Partie introuvable.":"Erreur réseau : "+e.type));
- peer.on("open",id=>{myId=id;state[id]=me;host=peer.connect("styler-"+cd,{reliable:true});
-  host.on("open",()=>go("p",c));
-  host.on("data",m=>{if(!m)return;if(m.t==="s"){Object.assign(state,m.state);state[myId]=me;setImg(m.img)}
-   else if(m.t==="u")ap(state[m.id]||(state[m.id]={}),m.patch);else if(m.t==="x")delete state[m.id];else if(m.t==="img")setImg(m.d)});
+ peer.on("error",e=>fail(e.type==="peer-unavailable"?(cd?"Lobby introuvable.":"Aucun meneur dans la partie générale pour l’instant."):"Erreur réseau : "+e.type));
+ peer.on("open",id=>{myId=id;state[id]=me;host=peer.connect(ID+(cd||"general"),{reliable:true});
+  host.on("open",()=>go("p"));
+  host.on("data",m=>{if(!m)return;
+   if(m.t==="s"){Object.assign(state,m.state);state[myId]=me;setImg(m.img);if(me.en===undefined)setP({en:S().maxE})}
+   else if(m.t==="u")ap(state[m.id]||(state[m.id]={}),m.patch);
+   else if(m.t==="x")delete state[m.id];
+   else if(m.t==="img")setImg(m.d);
+   else if(m.t==="atk")addAtk(m.a);
+   else if(m.t==="rs")reset(m.en)});
   host.on("close",hud)})}
-const S=()=>Object.assign({tgt:[500,312],need:5,energy:10,maxE:10,name:"Pokémon sauvage"},(all().find(p=>p.presence.role==="mj")||{}).presence||{});
-const loops=()=>all().reduce((a,p)=>a+(p.presence.role==="p"?p.presence.loops||0:0),0);
 const cr=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);
 const seg=(a,b,c,d)=>cr(a,b,c)*cr(a,b,d)<0&&cr(c,d,a)*cr(c,d,b)<0;
 const area=p=>Math.abs(p.reduce((s,q,i)=>{const r=p[(i+1)%p.length];return s+q[0]*r[1]-r[0]*q[1]},0))/2;
 function inside(t,p){let c=false;for(let i=0,j=p.length-1;i<p.length;j=i++)if((p[i][1]>t[1])!==(p[j][1]>t[1])&&t[0]<(p[j][0]-p[i][0])*(t[1]-p[i][1])/(p[j][1]-p[i][1])+p[i][0])c=!c;return c}
 function push(){setP({pts:pts.flat().map(Math.round)})}
-function end(k){const n=(me.loops||0)+(k==="ok"?1:0);pts=[];setP({pts:null,fxK:k,fxN:(me.fxN||0)+1,loops:n})}
+function end(k){const q={pts:null,fxK:k,fxN:(me.fxN||0)+1,loops:(me.loops||0)+(k==="ok"?1:0)};if(k==="cut")q.en=Math.max(0,(me.en??S().maxE)-1);pts=[];setP(q)}
 function check(){const n=pts.length;if(n<4)return;const a=pts[n-2],b=pts[n-1];let poly=null;
  for(let i=0;i<n-3;i++)if(seg(pts[i],pts[i+1],a,b)){poly=pts.slice(i+1);break}
  if(!poly&&n>20&&Math.hypot(pts[0][0]-b[0],pts[0][1]-b[1])<22)poly=pts;
  if(!poly||area(poly)<3000)return;
- end(inside(S().tgt,poly)?"ok":"miss");drawing=false}
-const pos=e=>{const r=cv.getBoundingClientRect();return[(e.clientX-r.left)*W/r.width,(e.clientY-r.top)*H/r.height]};
-function mjAct(p,first){if(tool==="cible")return setP({tgt:p.map(Math.round)});
- if(first)zc=p;const dx=p[0]-zc[0],dy=p[1]-zc[1],d=Math.round(Math.hypot(dx,dy)),x=Math.round(zc[0]),y=Math.round(zc[1]);
- if(tool==="zone")setP({zone:[x,y,d]});else setP({cone:[x,y,Math.round(Math.atan2(dy,dx)*180/Math.PI),d,+$("ca").value]})}
-cv.onpointerdown=e=>{if(!role)return;cv.setPointerCapture(e.pointerId);const p=pos(e);drawing=true;if(role==="mj")return mjAct(p,true);pts=[p];push()};
-cv.onpointermove=e=>{if(!drawing)return;const p=pos(e);if(role==="mj")return mjAct(p,false);
- const l=pts[pts.length-1];if(!l||Math.hypot(p[0]-l[0],p[1]-l[1])<8)return;pts.push(p);if(pts.length>150)pts.shift();push();if(hazard()){end("cut");drawing=false;return}check()};
-cv.onpointerup=cv.onpointercancel=()=>{if(drawing&&role==="p"&&pts.length)end("off");drawing=false};
-const inCirc=(x,y,z)=>Math.hypot(x-z[0],y-z[1])<z[2];
-const inCone=(x,y,c)=>{const dx=x-c[0],dy=y-c[1];if(Math.hypot(dx,dy)>c[3])return false;let a=Math.abs(Math.atan2(dy,dx)*180/Math.PI-c[2]);if(a>180)a=360-a;return a<=c[4]};
+ end(inside(S().tgt,poly)?"ok":"miss");pts=[b];push()}
 function onT(x,y,s){const T=s.tgt,sz=s.isz||130;
  if(!tImg||!tMask)return Math.hypot(x-T[0],y-T[1])<sz*.26;
  const k=Math.min(sz/tImg.naturalWidth,sz/tImg.naturalHeight),u=Math.floor((x-T[0])/k+tMask.width/2),v=Math.floor((y-T[1])/k+tMask.height/2);
  return u>=0&&v>=0&&u<tMask.width&&v<tMask.height&&tMask.data[(v*tMask.width+u)*4+3]>40}
-function hazard(){const s=S();for(let i=0;i<pts.length;i++){const a=pts[i],b=pts[i-1]||a,n=Math.ceil(Math.hypot(a[0]-b[0],a[1]-b[1])/6)||1;
- for(let j=1;j<=n;j++){const x=b[0]+(a[0]-b[0])*j/n,y=b[1]+(a[1]-b[1])*j/n;
-  if(onT(x,y,s)||(s.zone&&s.zone.length===3&&inCirc(x,y,s.zone))||(s.cone&&s.cone.length===5&&inCone(x,y,s.cone)))return true}}return false}
-const seen={};
-function watch(s,t){
- if((s.round||0)!==lastRound){lastRound=s.round||0;if(role==="p")setP({loops:0})}
- if(role==="p"&&drawing&&pts.length&&hazard()){end("cut");drawing=false}
- if(role==="mj")all().forEach(p=>{const q=p.presence;if(q.role!=="p")return;const n=q.fxN||0,o=seen[p.peer];seen[p.peer]=n;if(o!==undefined&&n>o&&q.fxK==="cut")setP({energy:Math.max(0,(me.energy??10)-1)})})}
+function inCone(x,y,a,q){const dx=x-a.x,dy=y-a.y;if(Math.hypot(dx,dy)>a.r*q)return false;let t=Math.abs(Math.atan2(dy,dx)*180/Math.PI-a.d);if(t>180)t=360-t;return t<=a.f}
+function hit(x,y,s,now){if(onT(x,y,s))return true;for(const a of atks){const q=(now-a.t0)/DUR;if(q<=0||q>=1)continue;if(a.k==="c"?Math.hypot(x-a.x,y-a.y)<a.r*q:inCone(x,y,a,q))return true}return false}
+function hazard(){const s=S(),now=performance.now();for(let i=0;i<pts.length;i++){const a=pts[i],b=pts[i-1]||a,n=Math.ceil(Math.hypot(a[0]-b[0],a[1]-b[1])/6)||1;
+ for(let j=1;j<=n;j++)if(hit(b[0]+(a[0]-b[0])*j/n,b[1]+(a[1]-b[1])*j/n,s,now))return true}return false}
+const pos=e=>{const r=cv.getBoundingClientRect();return[(e.clientX-r.left)*W/r.width,(e.clientY-r.top)*H/r.height]};
+function mjAct(p,first){if(tool==="cible")return setP({tgt:p.map(Math.round)});
+ if(first)zc=p;const dx=p[0]-zc[0],dy=p[1]-zc[1],d=Math.round(Math.hypot(dx,dy)),x=Math.round(zc[0]),y=Math.round(zc[1]);
+ setP({pv:tool==="zone"?{k:"c",x,y,r:d}:{k:"k",x,y,r:d,d:Math.round(Math.atan2(dy,dx)*180/Math.PI),f:+$("ca").value}})}
+cv.onpointerdown=e=>{if(!role)return;if(role==="p"&&me.en!==undefined&&me.en<=0)return;cv.setPointerCapture(e.pointerId);const p=pos(e);drawing=true;if(role==="mj")return mjAct(p,true);pts=[p];push()};
+cv.onpointermove=e=>{if(!drawing)return;const p=pos(e);if(role==="mj")return mjAct(p,false);
+ const l=pts[pts.length-1];if(!l||Math.hypot(p[0]-l[0],p[1]-l[1])<8)return;pts.push(p);if(pts.length>150)pts.shift();push();
+ if(hazard()){end("cut");drawing=false;return}check()};
+cv.onpointerup=cv.onpointercancel=()=>{
+ if(role==="mj"){const a=me.pv;if(drawing&&a){setP({pv:null});if(a.r>12)launch([a])}}
+ else if(drawing&&pts.length)end("off");drawing=false};
 function line(q,c,w,a){if(!q||q.length<4)return;g.globalAlpha=a;g.strokeStyle=c;g.lineWidth=w;g.lineCap=g.lineJoin="round";g.beginPath();g.moveTo(q[0],q[1]);for(let i=2;i<q.length;i+=2)g.lineTo(q[i],q[i+1]);g.stroke();g.globalAlpha=1}
-const okc=c=>Object.values(COL).includes(c)?c:"#aaaaaa";
-function draw(t){requestAnimationFrame(draw);const s=S();watch(s,t);
+function drawAtk(a,q){const sh=r=>{g.beginPath();if(a.k==="c")g.arc(a.x,a.y,r,0,7);else{const d=a.d*Math.PI/180,f=a.f*Math.PI/180;g.moveTo(a.x,a.y);g.arc(a.x,a.y,r,d-f,d+f);g.closePath()}};
+ g.setLineDash([10,8]);g.strokeStyle="#ef4444";g.lineWidth=3;g.fillStyle="#ef444488";
+ g.globalAlpha=.7;sh(a.r);g.stroke();g.globalAlpha=1;if(q>0){sh(a.r*q);g.fill()}g.setLineDash([])}
+function draw(t){requestAnimationFrame(draw);const s=S(),now=performance.now();
+ if(role==="p"&&drawing&&pts.length&&hazard()){end("cut");drawing=false}
  g.fillStyle="#0f1424";g.fillRect(0,0,W,H);g.strokeStyle="#ffffff12";g.lineWidth=1;g.beginPath();
  for(let x=0;x<=W;x+=50){g.moveTo(x,0);g.lineTo(x,H)}for(let y=0;y<=H;y+=50){g.moveTo(0,y);g.lineTo(W,y)}g.stroke();
- g.fillStyle="#ef444433";g.strokeStyle="#ef4444";g.lineWidth=3;g.setLineDash([10,8]);
- if(s.zone&&s.zone.length===3){g.beginPath();g.arc(s.zone[0],s.zone[1],s.zone[2],0,7);g.fill();g.stroke()}
- if(s.cone&&s.cone.length===5){const c=s.cone,a=c[2]*Math.PI/180,f=c[4]*Math.PI/180;g.beginPath();g.moveTo(c[0],c[1]);g.arc(c[0],c[1],c[3],a-f,a+f);g.closePath();g.fill();g.stroke()}
- g.setLineDash([]);
- const T=s.tgt,sz=s.isz||130,r=sz*.26;if(tImg&&tImg.naturalWidth){const k=Math.min(sz/tImg.naturalWidth,sz/tImg.naturalHeight);g.drawImage(tImg,T[0]-tImg.naturalWidth*k/2,T[1]-tImg.naturalHeight*k/2,tImg.naturalWidth*k,tImg.naturalHeight*k)}else{g.beginPath();g.arc(T[0],T[1],r,0,7);g.setLineDash([6,6]);g.strokeStyle="#ffffffaa";g.lineWidth=2;g.stroke();g.setLineDash([]);
- g.beginPath();g.arc(T[0],T[1],r*.6,0,7);g.fillStyle="#fde68a";g.fill();g.beginPath();g.arc(T[0],T[1],r*.18,0,7);g.fillStyle="#b45309";g.fill()}
- all().forEach(p=>{const q=p.presence,k=p.peer;if(q.pts){last[k]={pts:q.pts,c:okc(q.c)};line(q.pts,okc(q.c),6,.95)}else if(last[k]){ghosts.push(Object.assign({k:q.fxK,t},last[k]));delete last[k]}});
+ for(let i=atks.length-1;i>=0;i--)if(now-atks[i].t0>=DUR)atks.splice(i,1);
+ atks.forEach(a=>drawAtk(a,(now-a.t0)/DUR));
+ if(s.pv&&typeof s.pv.x==="number"&&typeof s.pv.r==="number")drawAtk(s.pv,0);
+ const T=s.tgt,sz=s.isz||130,r=sz*.26;
+ if(tImg&&tImg.naturalWidth){const k=Math.min(sz/tImg.naturalWidth,sz/tImg.naturalHeight);g.drawImage(tImg,T[0]-tImg.naturalWidth*k/2,T[1]-tImg.naturalHeight*k/2,tImg.naturalWidth*k,tImg.naturalHeight*k)}
+ else{g.beginPath();g.arc(T[0],T[1],r,0,7);g.setLineDash([6,6]);g.strokeStyle="#ffffffaa";g.lineWidth=2;g.stroke();g.setLineDash([]);
+  g.beginPath();g.arc(T[0],T[1],r*.6,0,7);g.fillStyle="#fde68a";g.fill();g.beginPath();g.arc(T[0],T[1],r*.18,0,7);g.fillStyle="#b45309";g.fill()}
+ all().forEach(p=>{const q=p.presence,k=p.peer,n=q.fxN||0;
+  if(fx[k]!==undefined&&n!==fx[k]&&last[k])ghosts.push(Object.assign({k:q.fxK,t},last[k]));
+  fx[k]=n;if(q.pts){last[k]={pts:q.pts,c:okc(q.c)};line(q.pts,okc(q.c),6,.95)}else delete last[k]});
  for(let i=ghosts.length-1;i>=0;i--){const h=ghosts[i],a=(t-h.t)/450;if(a>1){ghosts.splice(i,1);continue}
   line(h.pts,h.k==="ok"?"#4ade80":h.k==="miss"?"#9ca3af":h.k==="cut"?"#f87171":h.c,h.k==="ok"?6+a*14:6,1-a)}}
-function hud(){const s=S(),tot=loops();
- $("name").textContent=s.name;$("prog").style.width=Math.min(100,tot/s.need*100)+"%";$("pt").textContent=" "+tot+" / "+s.need+" boucles";
- $("en").style.width=Math.max(0,s.energy/s.maxE*100)+"%";$("et").textContent=" Énergie "+s.energy+" / "+s.maxE;
- $("who").replaceChildren(...all().filter(p=>p.presence.role==="p").map(p=>{const e=document.createElement("span");e.textContent=(p.presence.nick||"?")+" · "+(p.presence.loops||0)+(p.isMe&&p.sameTab?" (toi)":"");e.style.borderColor=okc(p.presence.c);return e}));
- const b=$("ban");b.textContent=tot>=s.need?"Capturé !":s.energy<=0?"Il s’enfuit…":"";b.hidden=!b.textContent;
- $("net").textContent=role==="mj"?"Code : "+code+" · "+(all().length-1)+" joueur(s)":host&&host.open?"Connecté · "+all().length+" personnes":"Déconnecté"}
-function go(r,c){role=r;const n=$("nick").value.trim().slice(0,16)||"Joueur";
- setP(r==="mj"?{role:"mj",name:"Pokémon sauvage",tgt:[500,312],need:5,maxE:10,energy:10,round:0,hitN:0}:{role:"p",nick:n,c,loops:0});
- $("join").hidden=true;$("app").hidden=false;$("mj").hidden=r!=="mj";
- $("help").textContent=r==="mj"?"Glisse sur la grille pour déplacer la cible ou tracer une attaque (ronde ou en cône) : dès qu’un trait la touche, il est coupé. Un trait qui touche le Pokémon est coupé aussi.":"Trace une boucle autour du Pokémon sans le toucher et évite les attaques rouges : un trait touché est coupé. Si tu lâches, il s’efface aussi.";
+function hud(){const s=S(),tot=loops(),ps=all().filter(p=>p.presence.role==="p"),e=me.en??s.maxE;
+ $("name").textContent=s.name;$("prog").style.width=Math.min(100,tot/s.need*100)+"%";$("pt").textContent=tot+" / "+s.need+" boucles";
+ $("enb").hidden=role!=="p";$("en").style.width=Math.max(0,e/s.maxE*100)+"%";$("et").textContent="Énergie "+e+" / "+s.maxE;
+ $("who").replaceChildren(...ps.map(p=>{const d=document.createElement("div"),i=document.createElement("i");i.className="dot";i.style.background=okc(p.presence.c);
+  d.append(i,(p.presence.nick||"?")+" · "+(p.presence.loops||0)+" boucles · ⚡"+(p.presence.en??s.maxE)+(p.isMe?" (toi)":""));return d}));
+ const b=$("ban");b.textContent=tot>=s.need?"Capturé !":ps.length&&ps.every(p=>(p.presence.en??s.maxE)<=0)?"Il s’enfuit…":"";b.hidden=!b.textContent;
+ $("net").textContent=role==="mj"?(code?"Lobby privé, code "+code:"Partie générale")+" · "+ps.length+" joueur(s)":host&&host.open?"Connecté · "+(lobby?"lobby "+lobby:"partie générale"):"Déconnecté"}
+function go(r){role=r;const n=$("nick").value.trim().slice(0,16)||"Joueur";
+ setP(r==="mj"?{role:"mj",name:"Pokémon sauvage",tgt:[500,312],need:5,maxE:10,round:0}:{role:"p",nick:n,c:myc,loops:0});
+ $("join").hidden=true;$("app").hidden=false;$("mj").hidden=r!=="mj";$("lkr").hidden=r!=="mj";
+ if(r==="mj")$("lk").value=location.href.split("#")[0]+(code?"#"+code:"");
+ $("help").textContent=r==="mj"?"Glisse sur la grille pour déplacer la cible ; avec une attaque, glisse puis relâche : elle se remplit et coupe les traits qu’elle touche. Un trait qui touche le Pokémon est coupé aussi.":"Trace des boucles autour du Pokémon sans le toucher et évite les attaques rouges : un trait touché est coupé et coûte 1 énergie. Une boucle fermée s’efface et tu peux continuer sans lever le doigt.";
  hud()}
-Object.entries(COL).forEach(([n,c])=>{const b=document.createElement("button");b.textContent=n;b.style.background=c;b.onclick=()=>startClient(c);$("cols").append(b)});
-$("gm").onclick=startHost;
+COLS.forEach(c=>{const b=document.createElement("button");b.style.background=c;b.title=c;b.setAttribute("aria-pressed",c===myc);
+ b.onclick=()=>{myc=c;$("cc").value=c;[...$("cols").children].forEach(x=>x.setAttribute("aria-pressed",x===b))};$("cols").append(b)});
+$("cc").oninput=()=>{myc=$("cc").value;[...$("cols").children].forEach(x=>x.setAttribute("aria-pressed",false))};
+$("jp").onclick=startClient;$("gm").onclick=()=>startHost(false);$("gp").onclick=()=>startHost(true);
 $("nm").oninput=()=>setP({name:$("nm").value.slice(0,40)});
 $("nd").onchange=()=>setP({need:Math.max(1,+$("nd").value||5)});
-$("ne").onchange=()=>{const v=Math.max(1,+$("ne").value||10);setP({maxE:v,energy:v})};
+$("ne").onchange=()=>setP({maxE:Math.max(1,+$("ne").value||10)});
 const tl=t=>{tool=t;$("tc").setAttribute("aria-pressed",t==="cible");$("tz").setAttribute("aria-pressed",t==="zone");$("tk").setAttribute("aria-pressed",t==="cone")};
-$("tc").onclick=()=>tl("cible");$("tz").onclick=()=>tl("zone");$("tk").onclick=()=>tl("cone");$("cz").onclick=()=>setP({zone:null,cone:null});$("ca").oninput=()=>{if(me.cone)setP({cone:[...me.cone.slice(0,4),+$("ca").value]})};
-$("nw").onclick=()=>setP({round:(me.round||0)+1,energy:me.maxE||10,zone:null,cone:null});
+$("tc").onclick=()=>tl("cible");$("tz").onclick=()=>tl("zone");$("tk").onclick=()=>tl("cone");
+$("ra").onclick=randAtk;$("nw").onclick=newRound;
+const sp=e=>{if(e.code==="Space"&&role==="mj"&&!/INPUT|TEXTAREA/.test(e.target.tagName)){e.preventDefault();if(e.type==="keydown"&&!e.repeat)randAtk()}};
+addEventListener("keydown",sp);addEventListener("keyup",sp);
 $("im").onchange=e=>{const f=e.target.files[0];e.target.value="";if(!f||role!=="mj")return;
  const u=URL.createObjectURL(f),i=new Image();
  i.onload=()=>{const k=Math.min(1,256/Math.max(i.naturalWidth,i.naturalHeight)),c=document.createElement("canvas");c.width=Math.max(1,Math.round(i.naturalWidth*k));c.height=Math.max(1,Math.round(i.naturalHeight*k));
@@ -163,7 +194,7 @@ $("ri").onclick=()=>{imgData=null;setImg(null);bc({t:"img",d:null})};
 const setSz=v=>{v=Math.max(40,Math.min(320,v));$("sz").value=v;setP({isz:v})};
 $("sz").oninput=()=>setSz(+$("sz").value);
 cv.addEventListener("wheel",e=>{if(role!=="mj")return;e.preventDefault();setSz((S().isz||130)-Math.sign(e.deltaY)*10)},{passive:false});
-$("cp").onclick=()=>{try{navigator.clipboard.writeText(location.href.split("#")[0]+"#"+code);$("cp").textContent="Lien copié !"}catch(x){}};
+$("cp").onclick=()=>{try{navigator.clipboard.writeText($("lk").value);$("cp").textContent="Lien copié !"}catch(x){}};
 $("code").value=decodeURIComponent(location.hash.slice(1)).toUpperCase().slice(0,8);
 setInterval(hud,250);requestAnimationFrame(draw);
 </script></body></html>
