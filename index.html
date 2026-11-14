@@ -55,7 +55,7 @@ small{color:var(--mut)}
 <label>Taille de la cible <input id="sz" type="range" min="40" max="320" value="130"></label>
 <div><button id="tc" aria-pressed="true">Déplacer la cible</button><button id="tz" aria-pressed="false">Attaque ronde</button><button id="tk" aria-pressed="false">Attaque en cône</button></div>
 <label>Ouverture du cône <input id="ca" type="range" min="10" max="90" value="30"></label>
-<div><button id="ra">Attaques aléatoires (Espace)</button><button id="nw">Nouvelle capture</button></div>
+<div><button id="ra">Attaques aléatoires [Espace]</button><button id="hl">Soigner joueurs</button><button id="nw">Nouvelle capture</button><button id="mm" aria-pressed="false">Mode multi : OFF</button></div>
 </div>
 <small id="help"></small>
 </aside>
@@ -66,7 +66,7 @@ small{color:var(--mut)}
 const $=id=>document.getElementById(id);
 const COLS=["#ef4444","#f97316","#eab308","#22c55e","#14b8a6","#06b6d4","#3b82f6","#8b5cf6","#ec4899","#f5f5f5"];
 const W=1000,H=625,DUR=800,cv=$("cv"),g=cv.getContext("2d");cv.width=W;cv.height=H;
-let peer=null,host=null,conns=[],code="",lobby="",myId="me",imgData=null,tImg=null,tMask=null,ls=0,myc=COLS[0],me={},role=null,pts=[],drawing=false,tool="cible",zc=[0,0];
+let peer=null,host=null,conns=[],code="",lobby="",myId="me",imgData=null,tImg=null,tMask=null,tp=null,ph=0,am=0,ls=0,myc=COLS[0],me={},role=null,pts=[],drawing=false,tool="cible",zc=[0,0];
 const ghosts=[],last={},fx={},state={},atks=[];
 const ap=(o,p)=>{for(const k in p){if(p[k]===null)delete o[k];else o[k]=p[k]}};
 const all=()=>Object.entries(state).map(([id,presence])=>({peer:id,isMe:id===myId,presence}));
@@ -79,6 +79,8 @@ function setP(p){ap(me,p);const k=Object.keys(p);if(k.length===1&&(k[0]==="pts"|
 function setImg(d){tImg=null;tMask=null;if(typeof d==="string"&&d.startsWith("data:image/png;base64,")&&d.length<600000){const i=new Image();i.onload=()=>{const c=document.createElement("canvas");c.width=i.naturalWidth;c.height=i.naturalHeight;const x=c.getContext("2d");x.drawImage(i,0,0);try{tMask=x.getImageData(0,0,c.width,c.height)}catch(e){}tImg=i};i.src=d}}
 function addAtk(l){if(!Array.isArray(l))return;l.forEach(a=>{if(a&&(a.k==="c"||a.k==="k")&&atks.length<40)atks.push({k:a.k,x:+a.x||0,y:+a.y||0,r:+a.r||0,d:+a.d||0,f:+a.f||30,t0:performance.now()+(+a.dl||0)})})}
 function reset(en){atks.length=0;for(const id in state)if(state[id].role==="p"){state[id].loops=0;state[id].en=en}}
+function scaleE(o,n){for(const id in state)if(state[id].role==="p"){const e=state[id].en??o;state[id].en=Math.min(n,e>0?Math.max(1,Math.round(e*n/o)):0)}}
+function heal(e){for(const id in state)if(state[id].role==="p")state[id].en=e}
 function launch(l){addAtk(l);bc({t:"atk",a:l})}
 function newRound(){const e=me.maxE||10;setP({round:(me.round||0)+1});reset(e);bc({t:"rs",en:e})}
 function randAtk(){launch(Array.from({length:3+Math.random()*3|0},()=>({k:"c",x:80+Math.random()*(W-160),y:80+Math.random()*(H-160),r:45+Math.random()*50,dl:Math.random()*600})))}
@@ -86,7 +88,7 @@ const fail=m=>{$("err").textContent=m};
 const clean=p=>{const q={};for(const k of ["role","nick","c","loops","pts","fxK","fxN","en"])if(k in p)q[k]=p[k];if(q.role)q.role="p";if("c" in q&&!hex(q.c))q.c="#aaaaaa";if(typeof q.nick==="string")q.nick=q.nick.slice(0,16);return q};
 function hostConn(c){conns.push(c);
  c.on("open",()=>c.send({t:"s",state,img:imgData}));
- c.on("data",m=>{if(m&&m.t==="p"&&m.patch){const q=clean(m.patch);ap(state[c.peer]||(state[c.peer]={}),q);bc({t:"u",id:c.peer,patch:q},c)}});
+ c.on("data",m=>{if(m&&m.t==="p"&&m.patch){const q=clean(m.patch);ap(state[c.peer]||(state[c.peer]={}),q);bc({t:"u",id:c.peer,patch:q},c)}else if(m&&m.t==="cl"&&typeof m.q==="string"){const d=conns.find(x=>x.peer===m.q);if(d&&d.open)d.send({t:"clr",k:m.k==="ok"?"ok":"miss"})}});
  c.on("close",()=>{conns=conns.filter(x=>x!==c);delete state[c.peer];bc({t:"x",id:c.peer})})}
 const ID="styler-uneon-";
 function startHost(priv){code=priv?Array.from({length:5},()=>"ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[Math.random()*32|0]).join(""):"";
@@ -108,19 +110,34 @@ function startClient(){const cd=$("code").value.trim().toUpperCase();lobby=cd;
    else if(m.t==="x")delete state[m.id];
    else if(m.t==="img")setImg(m.d);
    else if(m.t==="atk")addAtk(m.a);
-   else if(m.t==="rs")reset(m.en)});
+   else if(m.t==="rs")reset(m.en);else if(m.t==="sc")scaleE(m.o,m.n);else if(m.t==="heal")heal(m.en);
+   else if(m.t==="clr"&&role==="p"&&pts.length){const b=pts[pts.length-1];end(m.k,true);if(drawing){pts=[b];push()}}});
   host.on("close",hud)})}
 const cr=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);
 const seg=(a,b,c,d)=>cr(a,b,c)*cr(a,b,d)<0&&cr(c,d,a)*cr(c,d,b)<0;
+const ix=(a,b,c,d)=>{const t=cr(c,d,a)/(cr(c,d,a)-cr(c,d,b));return[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t]};
 const area=p=>Math.abs(p.reduce((s,q,i)=>{const r=p[(i+1)%p.length];return s+q[0]*r[1]-r[0]*q[1]},0))/2;
 function inside(t,p){let c=false;for(let i=0,j=p.length-1;i<p.length;j=i++)if((p[i][1]>t[1])!==(p[j][1]>t[1])&&t[0]<(p[j][0]-p[i][0])*(t[1]-p[i][1])/(p[j][1]-p[i][1])+p[i][0])c=!c;return c}
 function push(){setP({pts:pts.flat().map(Math.round)})}
-function end(k){const q={pts:null,fxK:k,fxN:(me.fxN||0)+1,loops:(me.loops||0)+(k==="ok"?1:0)};if(k==="cut")q.en=Math.max(0,(me.en??S().maxE)-1);pts=[];setP(q)}
+function end(k,nc){const q={pts:null,fxK:k,fxN:(me.fxN||0)+1,loops:(me.loops||0)+(k==="ok"&&!nc?1:0)};if(k==="cut")q.en=Math.max(0,(me.en??S().maxE)-1);pts=[];setP(q)}
 function check(){const n=pts.length;if(n<4)return;const a=pts[n-2],b=pts[n-1];let poly=null;
  for(let i=0;i<n-3;i++)if(seg(pts[i],pts[i+1],a,b)){poly=pts.slice(i+1);break}
  if(!poly&&n>20&&Math.hypot(pts[0][0]-b[0],pts[0][1]-b[1])<22)poly=pts;
  if(!poly||area(poly)<3000)return;
- end(inside(S().tgt,poly)?"ok":"miss");pts=[b];push()}
+ end(inside(S().tgt,poly)?"ok":"miss");pts=[b];push();return true}
+function xcheck(){const n=pts.length;if(n<2)return;const a=pts[n-2],b=pts[n-1];
+ for(const p of all()){const q=p.presence;if(p.isMe||q.role!=="p"||!q.pts||q.pts.length<4)continue;
+  const Q=[];for(let i=0;i<q.pts.length;i+=2)Q.push([q.pts[i],q.pts[i+1]]);
+  let j2=-1,X2;for(let j=0;j<Q.length-1;j++)if(seg(a,b,Q[j],Q[j+1])){j2=j;X2=ix(a,b,Q[j],Q[j+1]);break}
+  if(j2<0)continue;
+  let i1=-1,j1=-1,X1;
+  for(let i=n-4;i>=0&&i1<0;i--)for(let j=0;j<Q.length-1;j++)if(seg(pts[i],pts[i+1],Q[j],Q[j+1])){i1=i;j1=j;X1=ix(pts[i],pts[i+1],Q[j],Q[j+1]);break}
+  if(i1<0)continue;
+  const poly=[X1,...pts.slice(i1+1,n-1),X2];
+  if(j2<j1){for(let j=j2+1;j<=j1;j++)poly.push(Q[j])}else for(let j=j2;j>j1;j--)poly.push(Q[j]);
+  if(area(poly)<3000)continue;
+  const k=inside(S().tgt,poly)?"ok":"miss";
+  end(k);pts=[b];push();if(host&&host.open)host.send({t:"cl",q:p.peer,k});return}}
 function onT(x,y,s){const T=s.tgt,sz=s.isz||130;
  if(!tImg||!tMask)return Math.hypot(x-T[0],y-T[1])<sz*.26;
  const k=Math.min(sz/tImg.naturalWidth,sz/tImg.naturalHeight),u=Math.floor((x-T[0])/k+tMask.width/2),v=Math.floor((y-T[1])/k+tMask.height/2);
@@ -136,7 +153,7 @@ function mjAct(p,first){if(tool==="cible")return setP({tgt:p.map(Math.round)});
 cv.onpointerdown=e=>{if(!role)return;if(role==="p"&&me.en!==undefined&&me.en<=0)return;cv.setPointerCapture(e.pointerId);const p=pos(e);drawing=true;if(role==="mj")return mjAct(p,true);pts=[p];push()};
 cv.onpointermove=e=>{if(!drawing)return;const p=pos(e);if(role==="mj")return mjAct(p,false);
  const l=pts[pts.length-1];if(!l||Math.hypot(p[0]-l[0],p[1]-l[1])<8)return;pts.push(p);if(pts.length>150)pts.shift();push();
- if(hazard()){end("cut");drawing=false;return}check()};
+ if(hazard()){end("cut");drawing=false;return}if(!check()&&S().multi)xcheck()};
 cv.onpointerup=cv.onpointercancel=()=>{
  if(role==="mj"){const a=me.pv;if(drawing&&a){setP({pv:null});if(a.r>12)launch([a])}}
  else if(drawing&&pts.length)end("off");drawing=false};
@@ -151,15 +168,19 @@ function draw(t){requestAnimationFrame(draw);const s=S(),now=performance.now();
  for(let i=atks.length-1;i>=0;i--)if(now-atks[i].t0>=DUR)atks.splice(i,1);
  atks.forEach(a=>drawAtk(a,(now-a.t0)/DUR));
  if(s.pv&&typeof s.pv.x==="number"&&typeof s.pv.r==="number")drawAtk(s.pv,0);
- const T=s.tgt,sz=s.isz||130,r=sz*.26;
- if(tImg&&tImg.naturalWidth){const k=Math.min(sz/tImg.naturalWidth,sz/tImg.naturalHeight);g.drawImage(tImg,T[0]-tImg.naturalWidth*k/2,T[1]-tImg.naturalHeight*k/2,tImg.naturalWidth*k,tImg.naturalHeight*k)}
- else{g.beginPath();g.arc(T[0],T[1],r,0,7);g.setLineDash([6,6]);g.strokeStyle="#ffffffaa";g.lineWidth=2;g.stroke();g.setLineDash([]);
-  g.beginPath();g.arc(T[0],T[1],r*.6,0,7);g.fillStyle="#fde68a";g.fill();g.beginPath();g.arc(T[0],T[1],r*.18,0,7);g.fillStyle="#b45309";g.fill()}
+ const T=s.tgt,sz=s.isz||130,r=sz*.26;if(!tp)tp=[T[0],T[1]];
+ const mx=(T[0]-tp[0])*.3,my=(T[1]-tp[1])*.3,mv=Math.hypot(mx,my);if(mv<.05)tp=[T[0],T[1]];else{tp[0]+=mx;tp[1]+=my}
+ ph+=Math.min(mv,8)*.1;am+=(Math.min(1,mv/3)-am)*.15;
+ g.save();g.translate(tp[0],tp[1]-Math.abs(Math.sin(ph))*8*am);g.rotate(Math.sin(ph)*.3*am);
+ if(tImg&&tImg.naturalWidth){const k=Math.min(sz/tImg.naturalWidth,sz/tImg.naturalHeight),w=tImg.naturalWidth*k,h=tImg.naturalHeight*k;g.drawImage(tImg,-w/2,-h/2,w,h)}
+ else{g.beginPath();g.arc(0,0,r,0,7);g.setLineDash([6,6]);g.strokeStyle="#ffffffaa";g.lineWidth=2;g.stroke();g.setLineDash([]);
+  g.beginPath();g.arc(0,0,r*.6,0,7);g.fillStyle="#fde68a";g.fill();g.beginPath();g.arc(0,0,r*.18,0,7);g.fillStyle="#b45309";g.fill()}
+ g.restore();
  all().forEach(p=>{const q=p.presence,k=p.peer,n=q.fxN||0;
   if(fx[k]!==undefined&&n!==fx[k]&&last[k])ghosts.push(Object.assign({k:q.fxK,t},last[k]));
-  fx[k]=n;if(q.pts){last[k]={pts:q.pts,c:okc(q.c)};line(q.pts,okc(q.c),6,.95)}else delete last[k]});
+  fx[k]=n;if(q.pts){last[k]={pts:q.pts,c:okc(q.c)};line(q.pts,okc(q.c),3,.95)}else delete last[k]});
  for(let i=ghosts.length-1;i>=0;i--){const h=ghosts[i],a=(t-h.t)/450;if(a>1){ghosts.splice(i,1);continue}
-  line(h.pts,h.k==="ok"?"#4ade80":h.k==="miss"?"#9ca3af":h.k==="cut"?"#f87171":h.c,h.k==="ok"?6+a*14:6,1-a)}}
+  line(h.pts,h.k==="ok"?"#4ade80":h.k==="miss"?"#9ca3af":h.k==="cut"?"#f87171":h.c,h.k==="ok"?3+a*8:3,1-a)}}
 function hud(){const s=S(),tot=loops(),ps=all().filter(p=>p.presence.role==="p"),e=me.en??s.maxE;
  $("name").textContent=s.name;$("prog").style.width=Math.min(100,tot/s.need*100)+"%";$("pt").textContent=tot+" / "+s.need+" boucles";
  $("enb").hidden=role!=="p";$("en").style.width=Math.max(0,e/s.maxE*100)+"%";$("et").textContent="Énergie "+e+" / "+s.maxE;
@@ -179,10 +200,12 @@ $("cc").oninput=()=>{myc=$("cc").value;[...$("cols").children].forEach(x=>x.setA
 $("jp").onclick=startClient;$("gm").onclick=()=>startHost(false);$("gp").onclick=()=>startHost(true);
 $("nm").oninput=()=>setP({name:$("nm").value.slice(0,40)});
 $("nd").onchange=()=>setP({need:Math.max(1,+$("nd").value||5)});
-$("ne").onchange=()=>setP({maxE:Math.max(1,+$("ne").value||10)});
+$("ne").onchange=()=>{const o=me.maxE||10,n=Math.max(1,+$("ne").value||10);setP({maxE:n});if(n!==o){scaleE(o,n);bc({t:"sc",o,n})}};
 const tl=t=>{tool=t;$("tc").setAttribute("aria-pressed",t==="cible");$("tz").setAttribute("aria-pressed",t==="zone");$("tk").setAttribute("aria-pressed",t==="cone")};
 $("tc").onclick=()=>tl("cible");$("tz").onclick=()=>tl("zone");$("tk").onclick=()=>tl("cone");
 $("ra").onclick=randAtk;$("nw").onclick=newRound;
+$("hl").onclick=()=>{const e=me.maxE||10;heal(e);bc({t:"heal",en:e})};
+$("mm").onclick=()=>{const v=!me.multi;setP({multi:v});$("mm").textContent="Mode multi : "+(v?"ON":"OFF");$("mm").setAttribute("aria-pressed",v)};
 const sp=e=>{if(e.code==="Space"&&role==="mj"&&!/INPUT|TEXTAREA/.test(e.target.tagName)){e.preventDefault();if(e.type==="keydown"&&!e.repeat)randAtk()}};
 addEventListener("keydown",sp);addEventListener("keyup",sp);
 $("im").onchange=e=>{const f=e.target.files[0];e.target.value="";if(!f||role!=="mj")return;
