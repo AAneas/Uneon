@@ -53,9 +53,10 @@ small{color:var(--mut)}
 <label>Énergie par joueur <input id="ne" type="number" min="1" value="10" style="width:60px"></label>
 <label>Image de la cible (PNG) <input id="im" type="file" accept="image/png"></label><button id="ri">Retirer l’image</button>
 <label>Taille de la cible <input id="sz" type="range" min="40" max="320" value="130"></label>
+<small>Fond</small><div id="bgs"></div>
 <div><button id="tc" aria-pressed="true">Déplacer la cible</button><button id="tz" aria-pressed="false">Attaque ronde</button><button id="tk" aria-pressed="false">Attaque en cône</button></div>
 <label>Ouverture du cône <input id="ca" type="range" min="10" max="90" value="30"></label>
-<div><button id="ra">Attaques aléatoires [Espace]</button><button id="hl">Soigner joueurs</button><button id="nw">Nouvelle capture</button><button id="mm" aria-pressed="false">Mode multi : OFF</button></div>
+<div><button id="ra">Attaques aléatoires [Espace]</button><button id="hl">Soigner joueurs</button><button id="nw">Nouvelle capture</button><button id="mm" aria-pressed="false">Mode multi : OFF</button><button id="mt" aria-pressed="false">Mode test : OFF</button></div>
 </div>
 <small id="help"></small>
 </aside>
@@ -65,8 +66,8 @@ small{color:var(--mut)}
 <script>
 const $=id=>document.getElementById(id);
 const COLS=["#ef4444","#f97316","#eab308","#22c55e","#14b8a6","#06b6d4","#3b82f6","#8b5cf6","#ec4899","#f5f5f5"];
-const W=1000,H=625,DUR=800,cv=$("cv"),g=cv.getContext("2d");cv.width=W;cv.height=H;
-let peer=null,host=null,conns=[],code="",lobby="",myId="me",imgData=null,tImg=null,tMask=null,tp=null,ph=0,am=0,ls=0,myc=COLS[0],me={},role=null,pts=[],drawing=false,tool="cible",zc=[0,0];
+const W=1000,H=625,DUR=800,MAXP=75,cv=$("cv"),g=cv.getContext("2d");cv.width=W;cv.height=H;
+let peer=null,host=null,conns=[],code="",lobby="",myId="me",imgData=null,tImg=null,tMask=null,domC=null,tp=null,ph=0,am=0,ls=0,myc=COLS[0],me={},role=null,pts=[],drawing=false,tool="cible",zc=[0,0];
 const ghosts=[],last={},fx={},state={},atks=[];
 const ap=(o,p)=>{for(const k in p){if(p[k]===null)delete o[k];else o[k]=p[k]}};
 const all=()=>Object.entries(state).map(([id,presence])=>({peer:id,isMe:id===myId,presence}));
@@ -74,9 +75,10 @@ const bc=(m,x)=>conns.forEach(c=>{if(c!==x&&c.open)c.send(m)});
 const S=()=>Object.assign({tgt:[500,312],need:5,maxE:10,name:"Pokémon sauvage"},(all().find(p=>p.presence.role==="mj")||{}).presence||{});
 const loops=()=>all().reduce((a,p)=>a+(p.presence.role==="p"?p.presence.loops||0:0),0);
 const hex=c=>/^#[0-9a-fA-F]{6}$/.test(c),okc=c=>hex(c)?c:"#aaaaaa";
-function setP(p){ap(me,p);const k=Object.keys(p);if(k.length===1&&(k[0]==="pts"||k[0]==="pv")){const n=performance.now();if(n-ls<40)return;ls=n}
+function setP(p){ap(me,p);const k=Object.keys(p);if(k.length===1&&(k[0]==="pts"||k[0]==="pv")&&p[k[0]]!==null){const n=performance.now();if(n-ls<40)return;ls=n}
  if(role==="mj")bc({t:"u",id:myId,patch:p});else if(host&&host.open)host.send({t:"p",patch:p})}
-function setImg(d){tImg=null;tMask=null;if(typeof d==="string"&&d.startsWith("data:image/png;base64,")&&d.length<600000){const i=new Image();i.onload=()=>{const c=document.createElement("canvas");c.width=i.naturalWidth;c.height=i.naturalHeight;const x=c.getContext("2d");x.drawImage(i,0,0);try{tMask=x.getImageData(0,0,c.width,c.height)}catch(e){}tImg=i};i.src=d}}
+function setImg(d){tImg=null;tMask=null;domC=null;if(typeof d==="string"&&d.startsWith("data:image/png;base64,")&&d.length<600000){const i=new Image();i.onload=()=>{const c=document.createElement("canvas");c.width=i.naturalWidth;c.height=i.naturalHeight;const x=c.getContext("2d");x.drawImage(i,0,0);try{tMask=x.getImageData(0,0,c.width,c.height);domC=dom(tMask.data)}catch(e){}tImg=i};i.src=d}}
+function dom(d){const h={};for(let i=0;i<d.length;i+=4){if(d[i+3]<128)continue;const k=(d[i]>>5)<<6|(d[i+1]>>5)<<3|(d[i+2]>>5),o=h[k]||(h[k]=[0,0,0,0]);o[0]+=d[i];o[1]+=d[i+1];o[2]+=d[i+2];o[3]++}let b=null;for(const k in h)if(!b||h[k][3]>b[3])b=h[k];return b&&[b[0]/b[3],b[1]/b[3],b[2]/b[3]]}
 function addAtk(l){if(!Array.isArray(l))return;l.forEach(a=>{if(a&&(a.k==="c"||a.k==="k")&&atks.length<40)atks.push({k:a.k,x:+a.x||0,y:+a.y||0,r:+a.r||0,d:+a.d||0,f:+a.f||30,t0:performance.now()+(+a.dl||0)})})}
 function reset(en){atks.length=0;for(const id in state)if(state[id].role==="p"){state[id].loops=0;state[id].en=en}}
 function scaleE(o,n){for(const id in state)if(state[id].role==="p"){const e=state[id].en??o;state[id].en=Math.min(n,e>0?Math.max(1,Math.round(e*n/o)):0)}}
@@ -109,8 +111,8 @@ function startClient(){const cd=$("code").value.trim().toUpperCase();lobby=cd;
    else if(m.t==="u")ap(state[m.id]||(state[m.id]={}),m.patch);
    else if(m.t==="x")delete state[m.id];
    else if(m.t==="img")setImg(m.d);
-   else if(m.t==="atk")addAtk(m.a);
-   else if(m.t==="rs")reset(m.en);else if(m.t==="sc")scaleE(m.o,m.n);else if(m.t==="heal")heal(m.en);
+   else if(m.t==="atk"){addAtk(m.a);for(const id in state)if(state[id].role==="mj")delete state[id].pv}
+   else if(m.t==="rs")reset(m.en);else if(m.t==="sc")scaleE(m.o,m.n);else if(m.t==="tst"){if(!m.v&&role==="p"&&!drawing&&pts.length)end("off")}else if(m.t==="heal")heal(m.en);
    else if(m.t==="clr"&&role==="p"&&pts.length){const b=pts[pts.length-1];end(m.k,true);if(drawing){pts=[b];push()}}});
   host.on("close",hud)})}
 const cr=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);
@@ -150,21 +152,33 @@ const pos=e=>{const r=cv.getBoundingClientRect();return[(e.clientX-r.left)*W/r.w
 function mjAct(p,first){if(tool==="cible")return setP({tgt:p.map(Math.round)});
  if(first)zc=p;const dx=p[0]-zc[0],dy=p[1]-zc[1],d=Math.round(Math.hypot(dx,dy)),x=Math.round(zc[0]),y=Math.round(zc[1]);
  setP({pv:tool==="zone"?{k:"c",x,y,r:d}:{k:"k",x,y,r:d,d:Math.round(Math.atan2(dy,dx)*180/Math.PI),f:+$("ca").value}})}
-cv.onpointerdown=e=>{if(!role)return;if(role==="p"&&me.en!==undefined&&me.en<=0)return;cv.setPointerCapture(e.pointerId);const p=pos(e);drawing=true;if(role==="mj")return mjAct(p,true);pts=[p];push()};
+cv.onpointerdown=e=>{if(!role)return;if(role==="p"&&me.en!==undefined&&me.en<=0)return;cv.setPointerCapture(e.pointerId);const p=pos(e);drawing=true;if(role==="mj")return mjAct(p,true);if(pts.length)end("off");pts=[p];push()};
 cv.onpointermove=e=>{if(!drawing)return;const p=pos(e);if(role==="mj")return mjAct(p,false);
- const l=pts[pts.length-1];if(!l||Math.hypot(p[0]-l[0],p[1]-l[1])<8)return;pts.push(p);if(pts.length>150)pts.shift();push();
+ const l=pts[pts.length-1];if(!l||Math.hypot(p[0]-l[0],p[1]-l[1])<8)return;pts.push(p);if(pts.length>MAXP)pts.shift();push();
  if(hazard()){end("cut");drawing=false;return}if(!check()&&S().multi)xcheck()};
 cv.onpointerup=cv.onpointercancel=()=>{
  if(role==="mj"){const a=me.pv;if(drawing&&a){setP({pv:null});if(a.r>12)launch([a])}}
- else if(drawing&&pts.length)end("off");drawing=false};
+ else if(drawing&&pts.length&&!S().test)end("off");drawing=false};
 function line(q,c,w,a){if(!q||q.length<4)return;g.globalAlpha=a;g.strokeStyle=c;g.lineWidth=w;g.lineCap=g.lineJoin="round";g.beginPath();g.moveTo(q[0],q[1]);for(let i=2;i<q.length;i+=2)g.lineTo(q[i],q[i+1]);g.stroke();g.globalAlpha=1}
-function drawAtk(a,q){const sh=r=>{g.beginPath();if(a.k==="c")g.arc(a.x,a.y,r,0,7);else{const d=a.d*Math.PI/180,f=a.f*Math.PI/180;g.moveTo(a.x,a.y);g.arc(a.x,a.y,r,d-f,d+f);g.closePath()}};
- g.setLineDash([10,8]);g.strokeStyle="#ef4444";g.lineWidth=3;g.fillStyle="#ef444488";
- g.globalAlpha=.7;sh(a.r);g.stroke();g.globalAlpha=1;if(q>0){sh(a.r*q);g.fill()}g.setLineDash([])}
+let sd=1;const rnd=()=>(sd=sd*16807%2147483647)/2147483647;
+const BGS={
+plaine:["Plaine",c=>{c.fillStyle="#5aa84a";c.fillRect(0,0,W,H);c.lineWidth=2;for(let i=0;i<900;i++){const x=rnd()*W,y=rnd()*H;c.strokeStyle=rnd()<.5?"#3f8a3a":"#74c05c";c.beginPath();c.moveTo(x,y);c.lineTo(x+2,y-7);c.stroke()}for(let i=0;i<60;i++){c.fillStyle=["#ffffff","#fde047","#f9a8d4"][i%3];c.beginPath();c.arc(rnd()*W,rnd()*H,3,0,7);c.fill()}}],
+eau:["Eau",c=>{const l=c.createLinearGradient(0,0,0,H);l.addColorStop(0,"#2f7fc1");l.addColorStop(1,"#0e4a82");c.fillStyle=l;c.fillRect(0,0,W,H);c.strokeStyle="#ffffff55";c.lineWidth=2;for(let i=0;i<120;i++){c.beginPath();c.arc(rnd()*W,rnd()*H,12+rnd()*10,3.6,5.8);c.stroke()}}],
+grotte:["Grotte",c=>{const r=c.createRadialGradient(W/2,H/2,80,W/2,H/2,650);r.addColorStop(0,"#4a4152");r.addColorStop(1,"#17131c");c.fillStyle=r;c.fillRect(0,0,W,H);for(let i=0;i<70;i++){c.fillStyle=i%2?"#2d2635":"#5b5166";c.beginPath();c.ellipse(rnd()*W,rnd()*H,8+rnd()*26,6+rnd()*16,rnd()*3,0,7);c.fill()}for(let i=0;i<14;i++){const x=rnd()*W,y=rnd()*H;c.fillStyle="#67e8f9aa";c.beginPath();c.moveTo(x,y);c.lineTo(x+6,y+18);c.lineTo(x-6,y+18);c.fill()}}],
+ville:["Ville",c=>{c.fillStyle="#4b5563";c.fillRect(0,0,W,H);const bw=200,bh=156;for(let a=0;a<5;a++)for(let b=0;b<4;b++){c.fillStyle=["#9ca3af","#cbd5e1","#a8a29e","#94a3b8"][(a+b*2)%4];c.fillRect(a*bw+16,b*bh+16,bw-32,bh-32);c.fillStyle="#ffffff55";for(let k=0;k<6;k++)c.fillRect(a*bw+30+k*26,b*bh+30,14,10)}c.strokeStyle="#fde047";c.lineWidth=3;c.setLineDash([14,12]);for(let a=0;a<=5;a++){c.beginPath();c.moveTo(a*bw,0);c.lineTo(a*bw,H);c.stroke()}for(let b=0;b<=4;b++){c.beginPath();c.moveTo(0,b*bh);c.lineTo(W,b*bh);c.stroke()}c.setLineDash([])}],
+desert:["Désert",c=>{c.fillStyle="#e2bf7b";c.fillRect(0,0,W,H);c.lineWidth=3;for(let i=0;i<14;i++){c.strokeStyle=i%2?"#f2d89c":"#c9a35e";const y=rnd()*H;c.beginPath();c.moveTo(0,y);c.bezierCurveTo(W*.3,y-40,W*.6,y+40,W,y-10);c.stroke()}for(let i=0;i<40;i++){c.fillStyle="#a47c48";c.beginPath();c.arc(rnd()*W,rnd()*H,2+rnd()*3,0,7);c.fill()}}],
+neige:["Neige",c=>{c.fillStyle="#e6eff7";c.fillRect(0,0,W,H);for(let i=0;i<30;i++){c.fillStyle="#cfe0ee";c.beginPath();c.ellipse(rnd()*W,rnd()*H,30+rnd()*60,10+rnd()*20,0,0,7);c.fill()}for(let i=0;i<200;i++){c.fillStyle="#ffffff";c.beginPath();c.arc(rnd()*W,rnd()*H,1+rnd()*2.5,0,7);c.fill()}}]};
+let bgId="",bgAvg=[40,50,70],acK="",acV="#ef4444";const bgc=document.createElement("canvas");bgc.width=W;bgc.height=H;
+function setBg(id){if(!BGS[id])id="plaine";if(id===bgId)return;bgId=id;sd=1;const c=bgc.getContext("2d");c.setLineDash([]);c.lineWidth=1;BGS[id][1](c);
+ const d=c.getImageData(0,0,W,H).data;let r=0,gg=0,b=0,n=0;for(let i=0;i<d.length;i+=64){r+=d[i];gg+=d[i+1];b+=d[i+2];n++}bgAvg=[r/n,gg/n,b/n]}
+function atkCol(){const k=bgId+"|"+(domC||"");if(k===acK)return acV;acK=k;const d=domC||[239,68,68];
+ acV=Math.hypot(d[0]-bgAvg[0],d[1]-bgAvg[1],d[2]-bgAvg[2])<90?((bgAvg[0]*.299+bgAvg[1]*.587+bgAvg[2]*.114)>128?"#000000":"#ffffff"):"rgb("+(d[0]|0)+","+(d[1]|0)+","+(d[2]|0)+")";return acV}
+function drawAtk(a,q){const col=atkCol(),sh=r=>{g.beginPath();if(a.k==="c")g.arc(a.x,a.y,r,0,7);else{const d=a.d*Math.PI/180,f=a.f*Math.PI/180;g.moveTo(a.x,a.y);g.arc(a.x,a.y,r,d-f,d+f);g.closePath()}};
+ g.setLineDash([10,8]);g.strokeStyle=col;g.fillStyle=col;g.lineWidth=3;
+ g.globalAlpha=.8;sh(a.r);g.stroke();g.globalAlpha=.5;if(q>0){sh(a.r*q);g.fill()}g.globalAlpha=1;g.setLineDash([])}
 function draw(t){requestAnimationFrame(draw);const s=S(),now=performance.now();
  if(role==="p"&&drawing&&pts.length&&hazard()){end("cut");drawing=false}
- g.fillStyle="#0f1424";g.fillRect(0,0,W,H);g.strokeStyle="#ffffff12";g.lineWidth=1;g.beginPath();
- for(let x=0;x<=W;x+=50){g.moveTo(x,0);g.lineTo(x,H)}for(let y=0;y<=H;y+=50){g.moveTo(0,y);g.lineTo(W,y)}g.stroke();
+ const want=s.bg||"plaine";if(want!==bgId)setBg(want);g.drawImage(bgc,0,0);
  for(let i=atks.length-1;i>=0;i--)if(now-atks[i].t0>=DUR)atks.splice(i,1);
  atks.forEach(a=>drawAtk(a,(now-a.t0)/DUR));
  if(s.pv&&typeof s.pv.x==="number"&&typeof s.pv.r==="number")drawAtk(s.pv,0);
@@ -178,9 +192,9 @@ function draw(t){requestAnimationFrame(draw);const s=S(),now=performance.now();
  g.restore();
  all().forEach(p=>{const q=p.presence,k=p.peer,n=q.fxN||0;
   if(fx[k]!==undefined&&n!==fx[k]&&last[k])ghosts.push(Object.assign({k:q.fxK,t},last[k]));
-  fx[k]=n;if(q.pts){last[k]={pts:q.pts,c:okc(q.c)};line(q.pts,okc(q.c),3,.95)}else delete last[k]});
+  fx[k]=n;if(q.pts){last[k]={pts:q.pts,c:okc(q.c)};line(q.pts,"#0006",9,1);line(q.pts,okc(q.c),6,.95)}else delete last[k]});
  for(let i=ghosts.length-1;i>=0;i--){const h=ghosts[i],a=(t-h.t)/450;if(a>1){ghosts.splice(i,1);continue}
-  line(h.pts,h.k==="ok"?"#4ade80":h.k==="miss"?"#9ca3af":h.k==="cut"?"#f87171":h.c,h.k==="ok"?3+a*8:3,1-a)}}
+  line(h.pts,h.k==="ok"?"#4ade80":h.k==="miss"?"#9ca3af":h.k==="cut"?"#f87171":h.c,h.k==="ok"?6+a*14:6,1-a)}}
 function hud(){const s=S(),tot=loops(),ps=all().filter(p=>p.presence.role==="p"),e=me.en??s.maxE;
  $("name").textContent=s.name;$("prog").style.width=Math.min(100,tot/s.need*100)+"%";$("pt").textContent=tot+" / "+s.need+" boucles";
  $("enb").hidden=role!=="p";$("en").style.width=Math.max(0,e/s.maxE*100)+"%";$("et").textContent="Énergie "+e+" / "+s.maxE;
@@ -219,5 +233,8 @@ $("sz").oninput=()=>setSz(+$("sz").value);
 cv.addEventListener("wheel",e=>{if(role!=="mj")return;e.preventDefault();setSz((S().isz||130)-Math.sign(e.deltaY)*10)},{passive:false});
 $("cp").onclick=()=>{try{navigator.clipboard.writeText($("lk").value);$("cp").textContent="Lien copié !"}catch(x){}};
 $("code").value=decodeURIComponent(location.hash.slice(1)).toUpperCase().slice(0,8);
+Object.entries(BGS).forEach(([id,[n]],i)=>{const b=document.createElement("button");b.textContent=n;b.setAttribute("aria-pressed",i===0);
+ b.onclick=()=>{setP({bg:id});[...$("bgs").children].forEach(x=>x.setAttribute("aria-pressed",x===b))};$("bgs").append(b)});
+$("mt").onclick=()=>{const v=!me.test;setP({test:v});bc({t:"tst",v});$("mt").textContent="Mode test : "+(v?"ON":"OFF");$("mt").setAttribute("aria-pressed",v)};
 setInterval(hud,250);requestAnimationFrame(draw);
 </script></body></html>
